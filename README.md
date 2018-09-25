@@ -6,15 +6,16 @@ Created to detect malware / virus infected / hacked email accounts that attempt 
 It costed me multiple time, but biggest was USD 90+ on mailgun with 197k of spam emails being billed upon me.
 I couldn't wait any longer. Please join me to maintain this :)
 
-## How it works?
+# How it works?
 
 It scans /var/log/exim_mainlog on interval basis, and logs all email activity being received from authenticated user.
 Take note that it only support dovecot_plain at the moment. If you need other type of login, i may add it soon.
 
-
 # How to operate?
 
-## setup & run
+Before starting, please go through this steps to limit the number of emails allowed per hour per domain.
+
+[https://documentation.cpanel.net/display/CKB/How+to+Prevent+Spam+with+Mail+Limiting+Features](https://documentation.cpanel.net/display/CKB/How+to+Prevent+Spam+with+Mail+Limiting+Features)
 
 * login to whm
 * development > Manage Api Token
