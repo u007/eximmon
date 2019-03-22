@@ -22,7 +22,7 @@ var configPath = ".config"
 var dataPath = "data/"
 
 // date, id, <=, email, extras
-var eximRegLine = regexp.MustCompile("(?i)([^ ]* [^ ]*) ([^ ]*) ([^ ]*) .* A=dovecot_.*:([^ ]*) (.*)$")
+var eximRegLine = regexp.MustCompile("(?i)(\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}) ([^ ]*) ([^ ]*) .* A=dovecot_[a-zA-z]*:([^ ]*) (.*)$")
 var notifyEmail = ""
 
 func main() {
@@ -303,9 +303,9 @@ func eximLogScanner(logFile string, startTime time.Time, maxPerMin int16, maxPer
 		text = scanner.Text()
 		res := eximRegLine.FindStringSubmatch(text)
 		if len(res) < 5 {
-			if strings.Contains(text, "dovecot") {
+			if strings.Contains(text, "A=dovecot") {
 				log("Not: %#v | %v", res, text)
-				time.Sleep(1 * time.Second)
+				time.Sleep(100 * time.Millisecond)
 			}
 		} else {
 			if res[3] == "<=" {
@@ -360,7 +360,7 @@ func eximLogScanner(logFile string, startTime time.Time, maxPerMin int16, maxPer
 
 					log("Written %s time: %v, min: %v, hour: %v", email, thetime, minCount, hourCount)
 				} else if !skipTime {
-					log("Ignoring %s | %s | %s", email, thetime.Format(time.RFC3339), text)
+					log("Ignoring %#v : %#v ||||| '%s' | %s | %s", len(res), res[1:], email, thetime.Format(time.RFC3339), text)
 					time.Sleep(2 * time.Second)
 				}
 			} //is <=
