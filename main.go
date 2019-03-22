@@ -313,22 +313,21 @@ func eximLogScanner(logFile string, startTime time.Time, maxPerMin int16, maxPer
 				process := false
 				skipTime := false
 				var thetime time.Time
-				if strings.Index(email, "@") > 0 {
+				var err error
+
+				thetime, err = exim.ParseDate(res[1])
+				if err != nil {
+					panic(fmt.Errorf("Unable to read date: %#v on line %d", thetime, lineNo))
+				}
+				if !startTime.IsZero() {
+					if thetime.Before(startTime) {
+						log("Skipping by time %s expected %s", thetime.Format(time.RFC3339), startTime.Format(time.RFC3339))
+						skipTime = true
+					}
+				}
+
+				if !skipTime && strings.Index(email, "@") > 0 {
 					process = true
-					var err error
-					//is email
-					//received
-					thetime, err = exim.ParseDate(res[1])
-					if err != nil {
-						panic(fmt.Errorf("Unable to read date: %#v on line %d", thetime, lineNo))
-					}
-					if !startTime.IsZero() {
-						if thetime.Before(startTime) {
-							log("Skipping by time %s expected %s", thetime.Format(time.RFC3339), startTime.Format(time.RFC3339))
-							process = false
-							skipTime = true
-						}
-					}
 				} //is email
 
 				if process {
