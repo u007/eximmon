@@ -22,7 +22,7 @@ var configPath = ".config"
 var dataPath = "data/"
 
 // date, id, <=, email, extras
-var eximRegLine = regexp.MustCompile("(?i)([^ ]* [^ ]*) ([^ ]*) ([^ ]*) .* A=dovecot_plain:([^ ]*) (.*)$")
+var eximRegLine = regexp.MustCompile("(?i)([^ ]* [^ ]*) ([^ ]*) ([^ ]*) .* A=dovecot_.*:([^ ]*) (.*)$")
 var notifyEmail = ""
 
 func main() {
@@ -71,12 +71,13 @@ func main() {
 	whm.Log = log
 
 	if len(os.Args) < 2 {
-		log("args: start|run|skip|reset|suspend|unsuspend|info|help|test-notify")
+		log("args: start|run|skip|reset|suspend|unsuspend|info|help|test-notify|rerun")
 		return
 	}
 
 	maxRun := -1
 	now := time.Now()
+	skipLastLine := false
 	//start from yesterday min
 	startTime := time.Date(now.Year(), now.Month(), now.Day()-1, 0, 0, 0, 0, now.Local().Location())
 	switch os.Args[1] {
@@ -90,6 +91,25 @@ func main() {
 		//use yesterday
 	case "run":
 		maxRun = 1
+	case "rerun":
+		if len(os.Args) < 3 {
+			log("rerun date/time")
+			return
+		}
+
+		thetime, err := time.Parse("2006-01-02", os.Args[2])
+		// thetime, err := exim.ParseDate(os.Args[2])
+		if err != nil {
+			panic(fmt.Errorf("Unable to read date: %#v", os.Args[2]))
+		}
+		log("Rerun from: %s", thetime.Format(time.RFC3339))
+		if err := cleanupFrom(thetime); err != nil {
+			panic(fmt.Errorf("Unable to cleanup time: %+v", err))
+		}
+
+		startTime = thetime
+		skipLastLine = true
+
 	case "skip":
 		startTime = time.Now() //skip to now, skip everything then...
 	case "suspend":
@@ -136,6 +156,7 @@ func main() {
 
 	case "help":
 		log("start - continue from last position or start from yesterday, and repeats from last position")
+		log("rerun - rerun from specified date")
 		log("run - continue from last position or start from beginning for one time")
 		log("skip - skip all existing data and repeats for new logs")
 		log("reset - reset all data, huh, what?")
@@ -153,7 +174,7 @@ func main() {
 	i := 1
 	for {
 		log("loop %d", i)
-		if err := eximLogScanner(logFile, startTime, maxPerMin, maxPerHour); err != nil {
+		if err := eximLogScanner(logFile, startTime, maxPerMin, maxPerHour, skipLastLine); err != nil {
 			log("log scanner error: %+v", err)
 			// time.sleep(15 * time.Second)
 		}
@@ -168,14 +189,74 @@ func main() {
 	log("Done.")
 }
 
-func eximLogScanner(logFile string, startTime time.Time, maxPerMin int16, maxPerHour int16) error {
-	_, lastLine, lastPrefix, err := lastConfig(logFile)
+func cleanupFrom(thetime time.Time) error {
+	t := thetime
+	log("cleaningFrom: %v", t.Format(time.RFC3339))
+	d, err := os.Open(dataPath)
 	if err != nil {
-		panic(err)
+		return err
+	}
+	defer d.Close()
+	names, err := d.Readdirnames(-1)
+	if err != nil {
+		return err
+	}
+	for _, name := range names {
+		ownerDir := filepath.Join(dataPath, name)
+		log("scanning: %+v", ownerDir)
+
+		d, err := os.Open(ownerDir)
+		if err != nil {
+			return err
+		}
+		defer d.Close()
+		dates, err := d.Readdirnames(-1)
+		if err != nil {
+			return err
+		}
+		for _, date := range dates {
+			dateDir := filepath.Join(ownerDir, date)
+
+			dirtime, err := time.Parse("2006_01_02", date)
+			// thetime, err := exim.ParseDate(os.Args[2])
+			if err != nil {
+				panic(fmt.Errorf("Unable to read date: %#v", date))
+			}
+
+			if !t.After(dirtime) {
+				log("removing: %+v", dateDir)
+
+				err = os.RemoveAll(dateDir)
+				if err != nil {
+					return err
+				}
+			} else {
+				log("not removing: %+v", dateDir)
+			}
+
+		} //each date
+
+	} //each owner
+
+	// t = t.AddDate(0, 0, 1)
+	return nil
+}
+
+func eximLogScanner(logFile string, startTime time.Time, maxPerMin int16, maxPerHour int16, skipLastLine bool) error {
+	lastLine := int64(0)
+	lastPrefix := ""
+
+	if !skipLastLine {
+		var err error
+		_, lastLine, lastPrefix, err = lastConfig(logFile)
+		if err != nil {
+			panic(err)
+		}
+
+		log("Scanning log from time: %v, last line %v", startTime.Format(time.RFC3339), lastLine)
+		lastPrefix = strings.TrimRight(lastPrefix, "\n")
 	}
 
-	log("Scanning log from time: %v, last line %v", startTime.Format(time.RFC3339), lastLine)
-	lastPrefix = strings.TrimRight(lastPrefix, "\n")
 	newSize := MustSize(logFile)
 	file, err := os.Open(logFile)
 	if err != nil {
@@ -222,8 +303,10 @@ func eximLogScanner(logFile string, startTime time.Time, maxPerMin int16, maxPer
 		text = scanner.Text()
 		res := eximRegLine.FindStringSubmatch(text)
 		if len(res) < 5 {
-			// log("Not: %v", text)
-
+			if strings.Contains(text, "dovecot") {
+				log("Not: %#v | %v", res, text)
+				time.Sleep(1 * time.Second)
+			}
 		} else {
 			if res[3] == "<=" {
 				email := res[4] //login owner
@@ -277,7 +360,7 @@ func eximLogScanner(logFile string, startTime time.Time, maxPerMin int16, maxPer
 
 					log("Written %s time: %v, min: %v, hour: %v", email, thetime, minCount, hourCount)
 				} else if !skipTime {
-					log("Ignoring %s", text)
+					log("Ignoring %s | %s | %s", email, thetime.Format(time.RFC3339), text)
 					time.Sleep(2 * time.Second)
 				}
 			} //is <=
