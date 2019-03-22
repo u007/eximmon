@@ -93,8 +93,8 @@ GOOS=linux go build -o bin/eximmon main.go
 
 # Changes
 
+* 2019 Mar 23 - Fixed dovecot_login, added rerun
 * 2018 Sep 25 - First public respository up
-*
 
 
 # TODO
@@ -103,6 +103,15 @@ GOOS=linux go build -o bin/eximmon main.go
 * support for other type of dovecot_login methods
 * auto delete old data directory by date on every 100 runs
 * query email to show list of dates with hour and mins count
+
+# Cleanup
+
+Add this in cronjob, will delete any directory older than 30days.
+Remember to change /path-to to your eximmon parent directory of "data"
+
+```
+0 1 * * * find /path-to/data/*/ -type f -name '*' -mtime +30 -exec rm -Rf {} \;
+```
 
 # Help wanted!
 
