@@ -49,6 +49,7 @@ tail -f /root/eximmon/out.log
 
 * start - continue from last position or start from yesterday, and repeats from last position
 * run - continue from last position or start from beginning for one time
+* rerun - continue from a specific date
 * skip - skip all existing data and repeats for new logs
 * reset - reset all data, huh, what?
 * suspend - suspend outgoing email
