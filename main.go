@@ -30,12 +30,12 @@ func main() {
 	whm.ApiToken = os.Getenv("API_TOKEN")
 	if whm.ApiToken == "" {
 		log("Please declare -x API_TOKEN=...")
-		log("Other environments variables: MAX_PER_MIN=4 , MAX_PER_HOUR=100")
+		log("Other environments variables: MAX_PER_MIN=8 , MAX_PER_HOUR=100")
 		log("NOTIFY_EMAIL=email , EXIM_LOG=/var/log/exim_mainlog")
 		log("WHM_API_HOST=127.0.0.1")
 	}
 
-	maxPerMin := int16(4)
+	maxPerMin := int16(8)
 	maxPerHour := int16(100)
 	if os.Getenv("MAX_PER_MIN") != "" {
 		if i, err := strconv.ParseInt(os.Getenv("MAX_PER_MIN"), 10, 16); err != nil {
@@ -97,7 +97,7 @@ func main() {
 			return
 		}
 
-		thetime, err := time.Parse("2006-01-02", os.Args[2])
+		thetime, err := exim.ParseDate(os.Args[2])
 		// thetime, err := exim.ParseDate(os.Args[2])
 		if err != nil {
 			panic(fmt.Errorf("Unable to read date: %#v", os.Args[2]))
@@ -253,7 +253,6 @@ func eximLogScanner(logFile string, startTime time.Time, maxPerMin int16, maxPer
 			panic(err)
 		}
 
-		log("Scanning log from time: %v, last line %v", startTime.Format(time.RFC3339), lastLine)
 		lastPrefix = strings.TrimRight(lastPrefix, "\n")
 	}
 
@@ -274,6 +273,8 @@ func eximLogScanner(logFile string, startTime time.Time, maxPerMin int16, maxPer
 		// log("Skipping: %d: %d", lineNo, scanner.Text())
 		lineNo++
 	}
+
+	log("Scanning log from time: %v, last line %v", startTime.Format(time.RFC3339), lastLine)
 
 	text := scanner.Text()
 	if lastLine > 0 {
@@ -323,7 +324,11 @@ func eximLogScanner(logFile string, startTime time.Time, maxPerMin int16, maxPer
 					if thetime.Before(startTime) {
 						log("Skipping by time %s expected %s", thetime.Format(time.RFC3339), startTime.Format(time.RFC3339))
 						skipTime = true
+					} else {
+						// log("ok time %s(%s) after %s", thetime.Format(time.RFC3339), res[1], startTime.Format(time.RFC3339))
 					}
+				} else {
+					log("Start time is zero? %s", startTime.Format(time.RFC3339))
 				}
 
 				if !skipTime && strings.Index(email, "@") > 0 {
@@ -428,7 +433,7 @@ func mailCountStore(thetime time.Time, email string, hourCount int64, minCount i
 
 	MustDir(datePath)
 
-	log("Writing %s", hourFile)
+	log("Writing %s/%s", dirPath, hourFile)
 	if err := ioutil.WriteFile(hourFile, []byte(fmt.Sprintf("%d", hourCount)), 0644); err != nil {
 		return err
 	}
@@ -558,5 +563,5 @@ func MustSize(path string) int64 {
 }
 
 func log(msg string, args ...interface{}) {
-	fmt.Printf(msg+"\n", args...)
+	fmt.Printf("eximmon(v1.0.1):"+msg+"\n", args...)
 }
