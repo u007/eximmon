@@ -319,6 +319,7 @@ func eximLogScanner(logFile string, startTime time.Time, maxPerMin int16, maxPer
 
 	for {
 		text = scanner.Text()
+		log("raw line %d: %v", lineNo, text)
 		res := eximRegLine.FindStringSubmatch(text)
 		if len(res) < 5 {
 			if strings.Contains(text, "A=dovecot") {
@@ -384,10 +385,13 @@ func eximLogScanner(logFile string, startTime time.Time, maxPerMin int16, maxPer
 					log("Ignoring %#v : %#v ||||| '%s' | %s | %s", len(res), res[1:], email, thetime.Format(time.RFC3339), text)
 					time.Sleep(2 * time.Second)
 				}
-			} //is <=
+				//is <=
+			} else {
+				log("Not regex: %#v | %v", res, text)
+			}
 		}
 		if !scanner.Scan() {
-			log("scanned ended: line %d", lineNo)
+			// log("scanned ended: line %d", lineNo)
 			break
 		}
 		lineNo++
@@ -581,5 +585,5 @@ func MustSize(path string) int64 {
 }
 
 func log(msg string, args ...interface{}) {
-	fmt.Printf("eximmon(v1.0.3):"+msg+"\n", args...)
+	fmt.Printf("eximmon(v1.0.6):"+msg+"\n", args...)
 }
