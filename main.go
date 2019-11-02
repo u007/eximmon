@@ -304,7 +304,7 @@ func eximLogScanner(logFile string, startTime time.Time, maxPerMin int16, maxPer
 		} else {
 			//skip to next line
 			if !scanner.Scan() {
-				log("No more line since last scan")
+				log("No new line since last scan")
 				return nil
 			}
 			lineNo++
@@ -380,8 +380,6 @@ func eximLogScanner(logFile string, startTime time.Time, maxPerMin int16, maxPer
 					}
 
 					log("Written %s time: %v, min: %v, hour: %v", email, thetime, minCount, hourCount)
-					//skip this last time
-					startTime = thetime
 				} else if !skipTime {
 					log("Ignoring %#v : %#v ||||| '%s' | %s | %s", len(res), res[1:], email, thetime.Format(time.RFC3339), text)
 					time.Sleep(2 * time.Second)
@@ -583,5 +581,5 @@ func MustSize(path string) int64 {
 }
 
 func log(msg string, args ...interface{}) {
-	fmt.Printf("eximmon(v1.0.2):"+msg+"\n", args...)
+	fmt.Printf("eximmon(v1.0.3):"+msg+"\n", args...)
 }
