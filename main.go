@@ -91,6 +91,7 @@ func main() {
 		//use yesterday
 	case "run":
 		maxRun = 1
+		startTime = now
 	case "rerun":
 		if len(os.Args) < 3 {
 			log("rerun date/time")
@@ -266,23 +267,37 @@ func eximLogScanner(logFile string, startTime time.Time, maxPerMin int16, maxPer
 	//checks if line still valid
 	scanner := bufio.NewScanner(file)
 	lineNo := int64(1)
+
+	if lastPrefix != "" {
+		var err error
+		log("parsing last time: %s", lastPrefix[:19])
+		startTime, err = exim.ParseDate(lastPrefix[:19])
+		if err != nil {
+			panic(fmt.Errorf("Unable to read lastPrefix date: %#v on line %d", startTime, lastPrefix))
+		}
+	}
+
 	for scanner.Scan() {
 		if lineNo >= lastLine {
 			break
 		}
+
 		// log("Skipping: %d: %d", lineNo, scanner.Text())
 		lineNo++
 	}
 
-	log("Scanning log from time: %v, last line %v", startTime.Format(time.RFC3339), lastLine)
+	log("Scanning log from time: %v, last line %v path: %v", startTime.Format(time.RFC3339), lastLine, logFile)
 
 	text := scanner.Text()
 	if lastLine > 0 {
 		if !strings.HasPrefix(text, lastPrefix) {
-			log("Line mismatch line:\n%s\nExpecting:\n%s\n", text, lastPrefix)
+			log("Last missing line:\n%s\nExpecting:\n%s\n", text, lastPrefix)
 			time.Sleep(10 * time.Second)
+			//resetting to start
 			_, lastLine, lastPrefix = 0, 0, ""
-
+			if _, err := file.Seek(0, io.SeekStart); err != nil {
+				return err
+			}
 			scanner = bufio.NewScanner(file) //reset scanner
 			scanner.Scan()
 			lineNo = 1
@@ -299,6 +314,8 @@ func eximLogScanner(logFile string, startTime time.Time, maxPerMin int16, maxPer
 	if err := scanner.Err(); err != nil {
 		panic(err)
 	}
+
+	log("Starting line %d time: %v", lineNo, startTime.Format(time.RFC3339))
 
 	for {
 		text = scanner.Text()
@@ -363,6 +380,8 @@ func eximLogScanner(logFile string, startTime time.Time, maxPerMin int16, maxPer
 					}
 
 					log("Written %s time: %v, min: %v, hour: %v", email, thetime, minCount, hourCount)
+					//skip this last time
+					startTime = thetime
 				} else if !skipTime {
 					log("Ignoring %#v : %#v ||||| '%s' | %s | %s", len(res), res[1:], email, thetime.Format(time.RFC3339), text)
 					time.Sleep(2 * time.Second)
@@ -370,6 +389,7 @@ func eximLogScanner(logFile string, startTime time.Time, maxPerMin int16, maxPer
 			} //is <=
 		}
 		if !scanner.Scan() {
+			log("scanned ended: line %d", lineNo)
 			break
 		}
 		lineNo++
@@ -563,5 +583,5 @@ func MustSize(path string) int64 {
 }
 
 func log(msg string, args ...interface{}) {
-	fmt.Printf("eximmon(v1.0.1):"+msg+"\n", args...)
+	fmt.Printf("eximmon(v1.0.2):"+msg+"\n", args...)
 }
