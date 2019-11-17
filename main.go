@@ -273,7 +273,9 @@ func eximLogScanner(logFile string, startTime time.Time, maxPerMin int16, maxPer
 		log("parsing last time: %s", lastPrefix[:19])
 		startTime, err = exim.ParseDate(lastPrefix[:19])
 		if err != nil {
-			panic(fmt.Errorf("Unable to read lastPrefix date: %#v on line %d", startTime, lastPrefix))
+			log("Unable to read lastPrefix date: %#v on line %d", startTime, lastPrefix)
+			// panic(fmt.Errorf("Unable to read lastPrefix date: %#v on line %d", startTime, lastPrefix))
+			startTime = time.Now()
 		}
 	}
 
