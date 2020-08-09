@@ -25,7 +25,7 @@ var dataPath = "data/"
 // date, id, <=, email, extras
 var eximRegLine = regexp.MustCompile("(?i)(\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}) ([^ ]*) ([^ ]*) .* A=dovecot_[a-zA-z]*:([^ ]*) (.*)$")
 var notifyEmail = ""
-var domainConfigs DomainConfigs
+var domainConfigs whm.DomainConfigs
 
 func main() {
 	logFile := "exim_mainlog"
@@ -71,8 +71,12 @@ func main() {
 	}
 
 	whm.Log = log
-
-	domainConfigs = loadDomainConfigs(domainConfigPath)
+	var err error
+	domainConfigs, err = whm.LoadDomainConfigs(domainConfigPath)
+	if err != nil {
+		log("Error loading config %s", domainConfigPath)
+		return
+	}
 
 	if len(os.Args) < 2 {
 		log("args: start|run|skip|reset|suspend|unsuspend|info|help|test-notify|rerun")
@@ -164,8 +168,8 @@ func main() {
 			log("configdomain domain max_min/max_hour [value]")
 			return
 		}
-		
-		err := whm.SetDomainConfig(domainConfigPath, os.Args[2], os.Args[3])
+
+		_, err := whm.SetDomainConfig(domainConfigPath, os.Args[2], os.Args[3], os.Args[4])
 		if err != nil {
 			panic(fmt.Sprintf("error: %+v", err))
 		}
@@ -387,17 +391,18 @@ func eximLogScanner(logFile string, startTime time.Time, maxPerMin int16, maxPer
 
 					texts := strings.Split(email, "@")
 					domain := texts[1]
-					domainMaxPerMin int64, domainMaxPerHour int64
+					domainMaxPerMin := 0
+					domainMaxPerHour := 0
 
 					if val, ok := domainConfigs.Domains[domain]; ok {
 						domainMaxPerMin = val.MaxMin
 						domainMaxPerHour = val.MaxHour
 					}
-					if domainMaxPerHour == null {
-						domainMaxPerHour = int64(maxPerHour)
+					if domainMaxPerHour != 0 {
+						domainMaxPerHour = int(maxPerHour)
 					}
-					if domainMaxPerMin == null {
-						domainMaxPerMin = int64(maxPerMin)
+					if domainMaxPerMin != 0 {
+						domainMaxPerMin = int(maxPerMin)
 					}
 
 					log("Max min: %d, hour: %d, current: %d, %d", domainMaxPerHour, domainMaxPerHour, minCount, hourCount)
@@ -409,7 +414,6 @@ func eximLogScanner(logFile string, startTime time.Time, maxPerMin int16, maxPer
 						}
 
 						if notifyEmail != "" {
-							1
 							if err = notifySuspend(email, fmt.Sprintf("Count: minute: %d, hour: %d", minCount, hourCount)); err != nil {
 								log("notifySuspend error: %+v", err)
 								time.Sleep(10 * time.Second)

@@ -61,5 +61,5 @@ func UserDataInfo(domain string) (UserData, error) {
 		return UserData{}, fmt.Errorf(record.Metadata.Reason)
 	}
 
-	return UserData{}, fmt.Errorf("json error?")
+	// return UserData{}, fmt.Errorf("json error?")
 }

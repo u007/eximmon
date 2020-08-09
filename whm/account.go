@@ -75,5 +75,5 @@ func AccountInfo(domain string) (Account, error) {
 		return Account{}, fmt.Errorf(record.Metadata.Reason)
 	}
 
-	return Account{}, fmt.Errorf("json error?")
+	// return Account{}, fmt.Errorf("json error?")
 }

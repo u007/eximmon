@@ -2,13 +2,21 @@ package whm
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
+	"os"
+	"strconv"
 )
 
+// SetDomainConfig configure domain
 func SetDomainConfig(jsonConfig string, domain string, name string, value interface{}) (string, error) {
-	config := loadDomainConfigs(jsonConfig)
+	config, err := LoadDomainConfigs(jsonConfig)
+	if err != nil {
+		Log("setDomainConfig %s error: %vv", domain, err)
+		return "", err
+	}
 
-	if val, ok := config.Domains[domain]; ok {
+	if _, ok := config.Domains[domain]; !ok {
 		config.Domains[domain] = DomainConfig{}
 	}
 	theDomain := config.Domains[domain]
@@ -16,42 +24,46 @@ func SetDomainConfig(jsonConfig string, domain string, name string, value interf
 	if value != nil {
 		switch name {
 		case "max_min":
-			theDomain.MaxMin = int(value)
+			theDomain.MaxMin = value.(int)
 		case "max_hour":
-			theDomain.MaxHour = int(value)
+			theDomain.MaxHour = value.(int)
 		default:
 
-			return nil, error.Error("Invalid setting name")
+			return "", fmt.Errorf("Invalid setting name")
 		}
 		config.Domains[domain] = theDomain
 		jsonData, err := json.Marshal(config)
 		if err != nil {
-			return nil, err
+			return "", err
 		}
 
-		if err := ioutil.WriteFile(jsonFile, jsonData, 0600); err != nil {
-			return nil, err
+		if err := ioutil.WriteFile(jsonConfig, jsonData, 0600); err != nil {
+			return "", err
 		}
 	}
 
 	switch name {
 	case "max_min":
-		return domain.MaxMin, nil
+		return strconv.Itoa(config.Domains[domain].MaxMin), nil
 	case "max_hour":
-		return domain.MaxHour, nil
+		return strconv.Itoa(config.Domains[domain].MaxHour), nil
 	default:
-		return nil, error.Error("Invalid setting name")
+		return "", fmt.Errorf("Invalid setting name")
 	}
 
 }
 
-func loadDomainConfigs(jsonFile String) DomainConfigs {
-	byteValue, _ := ioutil.ReadAll(jsonFile)
-
+func LoadDomainConfigs(jsonFile string) (DomainConfigs, error) {
 	var users DomainConfigs
 
+	file, err := os.Open("my_file.zip")
+	if err != nil {
+		return users, err
+	}
+	byteValue, _ := ioutil.ReadAll(file)
+
 	json.Unmarshal(byteValue, &users)
-	return users
+	return users, nil
 }
 
 // DomainConfigs domains config in json
