@@ -19,13 +19,11 @@ import (
 )
 
 var configPath = ".config"
-var domainConfigPath = ".domains.conf"
 var dataPath = "data/"
 
 // date, id, <=, email, extras
 var eximRegLine = regexp.MustCompile("(?i)(\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}) ([^ ]*) ([^ ]*) .* A=dovecot_[a-zA-z]*:([^ ]*) (.*)$")
 var notifyEmail = ""
-var domainConfigs DomainConfigs
 
 func main() {
 	logFile := "exim_mainlog"
@@ -71,8 +69,6 @@ func main() {
 	}
 
 	whm.Log = log
-
-	domainConfigs = loadDomainConfigs(domainConfigPath)
 
 	if len(os.Args) < 2 {
 		log("args: start|run|skip|reset|suspend|unsuspend|info|help|test-notify|rerun")
@@ -159,25 +155,12 @@ func main() {
 		}
 		return
 
-	case "configemail":
-		if len(os.Args) < 4 {
-			log("configdomain domain max_min/max_hour [value]")
-			return
-		}
-		
-		err := whm.SetDomainConfig(domainConfigPath, os.Args[2], os.Args[3])
-		if err != nil {
-			panic(fmt.Sprintf("error: %+v", err))
-		}
-		return
-
 	case "help":
 		log("start - continue from last position or start from yesterday, and repeats from last position")
 		log("rerun - rerun from specified date")
 		log("run - continue from last position or start from beginning for one time")
 		log("skip - skip all existing data and repeats for new logs")
 		log("reset - reset all data, huh, what?")
-		log("configdomain - setup domain limit")
 		log("suspend - suspend outgoing email")
 		log("unsuspend - unsuspend outgoing email")
 		log("info - get information of a domain")
@@ -385,23 +368,6 @@ func eximLogScanner(logFile string, startTime time.Time, maxPerMin int16, maxPer
 						panic(fmt.Errorf("Unable to save count %s, time: %#v, error: %#v", email, thetime, err))
 					}
 
-					texts := strings.Split(email, "@")
-					domain := texts[1]
-					domainMaxPerMin int64, domainMaxPerHour int64
-
-					if val, ok := domainConfigs.Domains[domain]; ok {
-						domainMaxPerMin = val.MaxMin
-						domainMaxPerHour = val.MaxHour
-					}
-					if domainMaxPerHour == null {
-						domainMaxPerHour = int64(maxPerHour)
-					}
-					if domainMaxPerMin == null {
-						domainMaxPerMin = int64(maxPerMin)
-					}
-
-					log("Max min: %d, hour: %d, current: %d, %d", domainMaxPerHour, domainMaxPerHour, minCount, hourCount)
-
 					if minCount > int64(maxPerMin) || hourCount > int64(maxPerHour) {
 						if err := whm.SuspendEmail(email); err != nil {
 							log("Unable to suspendEmail %s, error: %+v", email, err)
@@ -409,7 +375,6 @@ func eximLogScanner(logFile string, startTime time.Time, maxPerMin int16, maxPer
 						}
 
 						if notifyEmail != "" {
-							1
 							if err = notifySuspend(email, fmt.Sprintf("Count: minute: %d, hour: %d", minCount, hourCount)); err != nil {
 								log("notifySuspend error: %+v", err)
 								time.Sleep(10 * time.Second)
