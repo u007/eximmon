@@ -30,10 +30,10 @@ func UserDataInfo(domain string) (UserData, error) {
 	defer conn.Close()
 	clientConn := httputil.NewClientConn(conn, nil)
 
-	// Log("calling: %s", urlString)
+	Log("UserDataInfo calling: %s", urlString)
 	req, err := http.NewRequest("GET", urlString, nil)
 	authStr := fmt.Sprintf("whm %s:%s", ApiUser, ApiToken)
-	// Log("authorization: %s", authStr)
+	Log("authorization: %s", authStr)
 	req.Header.Set("Authorization", authStr)
 
 	resp, err := clientConn.Do(req)

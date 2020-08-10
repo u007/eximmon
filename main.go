@@ -587,5 +587,5 @@ func MustSize(path string) int64 {
 }
 
 func log(msg string, args ...interface{}) {
-	fmt.Printf("eximmon(v1.0.6):"+msg+"\n", args...)
+	fmt.Printf("eximmon(v1.0.7):"+msg+"\n", args...)
 }

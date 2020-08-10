@@ -8,18 +8,22 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"strings"
+	"time"
 )
 
 func SuspendEmail(email string) error {
-	Log("Suspending: %s", email)
+	Log("Suspending %s", email)
 
 	domain := email[strings.Index(email, "@")+1:]
 	info, err := UserDataInfo(domain)
 	if err != nil {
+		Log("UserDataInfo error: %v", err)
 		return err
 	}
 
 	urlString := cPanelApiURL("Email", "suspend_outgoing", info.User) + "&email=" + url.QueryEscape(email)
+	Log("calling: %s", urlString)
+	time.Sleep(1000 * time.Millisecond)
 	// Log("Connecting to '%s'", ApiHost)
 	conn, err := WHMDialer()
 	if err != nil {
@@ -29,7 +33,6 @@ func SuspendEmail(email string) error {
 	defer conn.Close()
 	clientConn := httputil.NewClientConn(conn, nil)
 
-	// Log("calling: %s", urlString)
 	req, err := http.NewRequest("GET", urlString, nil)
 	req.Header.Set("Authorization", fmt.Sprintf("whm %s:%s", ApiUser, ApiToken))
 
@@ -39,7 +42,9 @@ func SuspendEmail(email string) error {
 	}
 
 	defer resp.Body.Close()
+	Log("Reading body")
 	body, err := ioutil.ReadAll(resp.Body)
+	Log("called: %s", body)
 	if err != nil {
 		return err
 	}

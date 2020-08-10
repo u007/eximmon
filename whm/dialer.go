@@ -8,7 +8,8 @@ import (
 
 func WHMDialer() (net.Conn, error) {
 	dial, err := (&net.Dialer{
-		Timeout: 5 * time.Second,
+		Timeout:   time.Minute * 5,
+		KeepAlive: 30 * time.Second,
 	}).Dial("tcp", ApiHost+":2087")
 
 	if err != nil {
@@ -17,6 +18,10 @@ func WHMDialer() (net.Conn, error) {
 
 	dial.SetReadDeadline(time.Now().Add(time.Minute * 5))
 	conn := tls.Client(dial, &tls.Config{InsecureSkipVerify: true})
+
+	// 	Transport: &http.Transport{
+	// 		DisableKeepAlives: true,
+	// },
 
 	return conn, nil
 }
