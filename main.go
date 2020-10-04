@@ -22,7 +22,7 @@ var configPath = ".config"
 var dataPath = "data/"
 
 // date, id, <=, email, extras
-var eximRegLine = regexp.MustCompile("(?i)(\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}) ([^ ]*) ([^ ]*) .* A=dovecot_[a-zA-z]*:([^ ]*) (.*)$")
+var eximRegLine = regexp.MustCompile("(?i)(\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}) ([^ ]*) ([^ ]*) .* A=dovecot_[a-zA-z]*:([^ ]*) (.*) for (.*)$")
 var notifyEmail = ""
 
 func main() {
@@ -243,6 +243,19 @@ func cleanupFrom(thetime time.Time) error {
 	return nil
 }
 
+func emailDomainName(email string) (string, error) {
+	trimmedEmail := strings.TrimSpace(email)
+	lastPos := strings.LastIndex(trimmedEmail, "@")
+	if lastPos < 0 {
+		return "", fmt.Errorf("@ missing, not valid email: " + email)
+	}
+
+	domain := trimmedEmail[lastPos+1:]
+	log("domain %s, email: %s", domain, email)
+
+	return domain, nil
+}
+
 func eximLogScanner(logFile string, startTime time.Time, maxPerMin int16, maxPerHour int16, skipLastLine bool) error {
 	lastLine := int64(0)
 	lastPrefix := ""
@@ -331,10 +344,13 @@ func eximLogScanner(logFile string, startTime time.Time, maxPerMin int16, maxPer
 		} else {
 			if res[3] == "<=" {
 				email := res[4] //login owner
+				recipient := res[6]
 				process := false
 				skipTime := false
 				var thetime time.Time
 				var err error
+				var senderDomain string
+				var recipientDomain string
 
 				thetime, err = exim.ParseDate(res[1])
 				if err != nil {
@@ -354,6 +370,22 @@ func eximLogScanner(logFile string, startTime time.Time, maxPerMin int16, maxPer
 				if !skipTime && strings.Index(email, "@") > 0 {
 					process = true
 				} //is email
+
+				if process {
+					senderDomain, err = emailDomainName(email)
+					if err != nil {
+						return fmt.Errorf("unable to obtain domain from email %s, error: %v", err, email)
+					}
+					recipientDomain, err = emailDomainName(recipient)
+					if err != nil {
+						log(fmt.Sprintf("unable to obtain domain from email %s, error: %v", err, recipient))
+						// return fmt.Errorf("unable to obtain domain from email %s, error: %v", err, recipient)
+					}
+					if senderDomain == recipientDomain {
+						log("skipping same domain %s | %s", email, recipient)
+						process = false
+					}
+				}
 
 				if process {
 					minCount, hourCount, err := mailCount(thetime, email)
@@ -587,5 +619,5 @@ func MustSize(path string) int64 {
 }
 
 func log(msg string, args ...interface{}) {
-	fmt.Printf("eximmon(v1.0.7):"+msg+"\n", args...)
+	fmt.Printf("eximmon(v1.0.8):"+msg+"\n", args...)
 }
