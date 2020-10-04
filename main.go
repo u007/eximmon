@@ -376,15 +376,24 @@ func eximLogScanner(logFile string, startTime time.Time, maxPerMin int16, maxPer
 					if err != nil {
 						return fmt.Errorf("unable to obtain domain from email %s, error: %v", err, email)
 					}
-					recipientDomain, err = emailDomainName(recipient)
-					if err != nil {
-						log(fmt.Sprintf("unable to obtain domain from email %s, error: %v", err, recipient))
-						// return fmt.Errorf("unable to obtain domain from email %s, error: %v", err, recipient)
+					hasExternal := false
+					recipients := strings.Split(recipient, " ")
+					for _, rec := range recipients {
+						recipientDomain, err = emailDomainName(rec)
+						if err != nil {
+							log(fmt.Sprintf("unable to obtain domain from email %s, error: %v", err, rec))
+							// return fmt.Errorf("unable to obtain domain from email %s, error: %v", err, recipient)
+							continue
+						}
+						if senderDomain == recipientDomain {
+							log("detected same domain %s | %s", email, rec)
+							continue
+						}
+						log("detected other domain %s | %s", recipientDomain, rec)
+						hasExternal = true
 					}
-					if senderDomain == recipientDomain {
-						log("skipping same domain %s | %s", email, recipient)
-						process = false
-					}
+
+					process = hasExternal
 				}
 
 				if process {
